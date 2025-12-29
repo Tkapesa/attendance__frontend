@@ -9,6 +9,10 @@ from firebase_admin import firestore
 _db = None
 
 
+class FirebaseCredentialsError(RuntimeError):
+    """Raised when Firestore credentials can't be loaded."""
+
+
 def get_firestore_db():
     """Singleton initializer for Firebase Admin + Firestore client.
 
@@ -31,7 +35,7 @@ def get_firestore_db():
 
     if not firebase_admin._apps:
         if not os.path.exists(cred_path):
-            raise FileNotFoundError(
+            raise FirebaseCredentialsError(
                 f"Firebase credentials not found at '{cred_path}'. "
                 "Place firebase-credentials.json in backend/ or set FIREBASE_CREDENTIALS_PATH."
             )

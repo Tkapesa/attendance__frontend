@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from firebase_config.firebase import get_firestore_db
+from firebase_config.firebase import FirebaseCredentialsError, get_firestore_db
 
 
 def _json_error(message, status=400):
@@ -40,7 +40,10 @@ def check_in(request):
     except (TypeError, ValueError):
         return _json_error("fingerprint_id must be an integer")
 
-    db = get_firestore_db()
+    try:
+        db = get_firestore_db()
+    except FirebaseCredentialsError as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
     user = _find_user_by_fingerprint(db, fingerprint_id)
     if not user:
