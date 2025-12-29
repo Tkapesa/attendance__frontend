@@ -10,11 +10,14 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
+import { apiService } from '../services/api';
+
 function Attendance() {
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState('attendance');
   const [scanning, setScanning] = useState(true);
   const [currentStudent, setCurrentStudent] = useState(null);
+  const [error, setError] = useState('');
   const [recentScans, setRecentScans] = useState([
     { time: '10:15 AM', id: 'S001', name: 'John Doe', status: 'Present' },
     { time: '10:14 AM', id: 'S003', name: 'Mike Johnson', status: 'Present' },
@@ -26,26 +29,39 @@ function Attendance() {
     navigate(path);
   };
 
-  const students = ['John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Williams'];
-
   useEffect(() => {
-    const interval = setInterval(() => {
-      const randomStudent = students[Math.floor(Math.random() * students.length)];
-      const randomId = 'S' + String(Math.floor(Math.random() * 100)).padStart(3, '0');
+    const interval = setInterval(async () => {
+      const fingerprintId = Math.floor(1000 + Math.random() * 9000);
       const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      
-      setCurrentStudent(randomStudent);
-      setScanning(false);
-      
-      setRecentScans(prev => [
-        { time, id: randomId, name: randomStudent, status: 'Present' },
-        ...prev.slice(0, 4)
-      ]);
 
-      setTimeout(() => {
+      setError('');
+      setScanning(false);
+      try {
+        const res = await apiService.checkIn({ fingerprint_id: fingerprintId, device_id: 'web-demo' });
+
+        if (res?.status !== 'success') {
+          throw new Error(res?.message || 'Check-in failed');
+        }
+
+        setCurrentStudent(res.user_name || 'Student');
+        setRecentScans(prev => [
+          { time, id: res.student_id || 'N/A', name: res.user_name || 'Student', status: 'Present' },
+          ...prev.slice(0, 4)
+        ]);
+      } catch (err) {
+        const msg = err?.response?.data?.message || err?.message || 'Failed to record attendance';
+        setError(msg);
         setCurrentStudent(null);
-        setScanning(true);
-      }, 2000);
+        setRecentScans(prev => [
+          { time, id: 'N/A', name: `Fingerprint #${fingerprintId}`, status: 'Rejected' },
+          ...prev.slice(0, 4)
+        ]);
+      } finally {
+        setTimeout(() => {
+          setCurrentStudent(null);
+          setScanning(true);
+        }, 2000);
+      }
     }, 8000);
 
     return () => clearInterval(interval);
@@ -123,6 +139,20 @@ function Attendance() {
             <div className="card-header">
               <h2 className="card-title">Scanner Status</h2>
             </div>
+
+            {error && (
+              <div style={{
+                margin: '20px 20px 0',
+                background: '#fff5f5',
+                border: '1px solid #800020',
+                color: '#800020',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                fontSize: '14px'
+              }}>
+                {error}
+              </div>
+            )}
             <div style={{textAlign: 'center', padding: '60px 20px'}}>
               <div style={{
                 width: '280px',
@@ -190,7 +220,7 @@ function Attendance() {
             <div>
               {recentScans.map((scan, index) => (
                 <div key={index} className="task-item">
-                  <div className="task-indicator" style={{background: '#10b981'}}></div>
+                  <div className="task-indicator" style={{background: scan.status === 'Rejected' ? '#800020' : '#10b981'}}></div>
                   <div className="task-content">
                     <div className="task-title">{scan.name}</div>
                     <div className="task-subtitle">{scan.id} • {scan.time}</div>
@@ -198,8 +228,8 @@ function Attendance() {
                   <div style={{
                     padding: '6px 12px',
                     borderRadius: '8px',
-                    background: '#d1fae5',
-                    color: '#059669',
+                    background: scan.status === 'Rejected' ? '#fff5f5' : '#d1fae5',
+                    color: scan.status === 'Rejected' ? '#800020' : '#059669',
                     fontSize: '13px',
                     fontWeight: 600
                   }}>

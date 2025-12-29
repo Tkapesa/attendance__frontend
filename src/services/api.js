@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+// Django backend base URL (no '/api' prefix for this project)
+// Example: http://localhost:8000
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -21,63 +23,26 @@ api.interceptors.request.use((config) => {
 
 // API functions
 export const apiService = {
-  // Auth
-  login: async (email, password) => {
-    const response = await api.post('/auth/login', { email, password });
+  // Users
+  registerUser: async (payload) => {
+    const response = await api.post('/users/register/', payload);
     return response.data;
   },
 
-  // Fingerprint
-  enrollFingerprint: async () => {
-    const response = await api.post('/fingerprint/enroll');
+  // Fingerprint (ESP32-style)
+  verifyFingerprint: async (fingerprintId) => {
+    const response = await api.get(`/fingerprint/verify/${fingerprintId}/`);
     return response.data;
   },
 
-  scanFingerprint: async () => {
-    const response = await api.post('/fingerprint/scan');
+  enrollFingerprint: async (payload) => {
+    const response = await api.post('/fingerprint/enroll/', payload);
     return response.data;
   },
 
-  // Students
-  getStudents: async () => {
-    const response = await api.get('/students');
-    return response.data;
-  },
-
-  addStudent: async (studentData) => {
-    const response = await api.post('/students', studentData);
-    return response.data;
-  },
-
-  deleteStudent: async (id) => {
-    const response = await api.delete(`/students/${id}`);
-    return response.data;
-  },
-
-  // Courses
-  getCourses: async () => {
-    const response = await api.get('/courses');
-    return response.data;
-  },
-
-  addCourse: async (courseData) => {
-    const response = await api.post('/courses', courseData);
-    return response.data;
-  },
-
-  deleteCourse: async (id) => {
-    const response = await api.delete(`/courses/${id}`);
-    return response.data;
-  },
-
-  // Attendance
-  getAttendance: async () => {
-    const response = await api.get('/attendance');
-    return response.data;
-  },
-
-  getTodayAttendance: async () => {
-    const response = await api.get('/attendance/today');
+  // Attendance (core loop)
+  checkIn: async (payload) => {
+    const response = await api.post('/attendance/check-in/', payload);
     return response.data;
   },
 };

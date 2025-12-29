@@ -11,6 +11,8 @@ import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 
+import { apiService } from '../services/api';
+
 function Enroll() {
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState('enroll');
@@ -21,6 +23,9 @@ function Enroll() {
   });
   const [fingerprintId, setFingerprintId] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleNav = (path, navItem) => {
     setActiveNav(navItem);
@@ -28,17 +33,49 @@ function Enroll() {
   };
 
   const handleScanFingerprint = () => {
+    setError('');
+    setSuccess('');
     setScanning(true);
     setTimeout(() => {
-      setFingerprintId('FP' + Math.floor(Math.random() * 100000));
+      // Backend expects an integer fingerprint_id
+      setFingerprintId(String(Math.floor(1000 + Math.random() * 9000)));
       setScanning(false);
     }, 2000);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert(`Student ${formData.name} enrolled successfully!`);
-    navigate('/students');
+    setError('');
+    setSuccess('');
+
+    if (!fingerprintId) {
+      setError('Please scan a fingerprint first.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        uid: formData.studentId,
+        name: formData.name,
+        role: 'student',
+        fingerprint_id: Number(fingerprintId),
+        // course isn't in the backend spec yet; keep it frontend-only for now.
+      };
+
+      const res = await apiService.registerUser(payload);
+
+      if (res?.status !== 'success') {
+        throw new Error(res?.message || 'Failed to register user');
+      }
+
+      setSuccess(`✅ ${formData.name} registered (Fingerprint #${fingerprintId}).`);
+      setTimeout(() => navigate('/students'), 600);
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || 'Enrollment failed');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -113,6 +150,35 @@ function Enroll() {
             <div className="card-header">
               <h2 className="card-title">Student Information</h2>
             </div>
+
+            {error && (
+              <div style={{
+                background: '#fff5f5',
+                border: '1px solid #800020',
+                color: '#800020',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                marginBottom: '16px',
+                fontSize: '14px'
+              }}>
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div style={{
+                background: '#d1fae5',
+                border: '1px solid #10b981',
+                color: '#047857',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                marginBottom: '16px',
+                fontSize: '14px'
+              }}>
+                {success}
+              </div>
+            )}
+
             <form onSubmit={handleSubmit}>
               <div style={{marginBottom: '20px'}}>
                 <label style={{display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '14px'}}>Student ID</label>
@@ -173,8 +239,13 @@ function Enroll() {
               </div>
 
               <div style={{display: 'flex', gap: '12px'}}>
-                <button type="submit" className="btn btn-primary" disabled={!fingerprintId} style={{opacity: fingerprintId ? 1 : 0.5}}>
-                  Save Student
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={!fingerprintId || saving}
+                  style={{opacity: fingerprintId && !saving ? 1 : 0.6}}
+                >
+                  {saving ? 'Saving...' : 'Save Student'}
                 </button>
                 <button type="button" className="btn" style={{background: '#f5f5f7', color: '#1d1d1f'}} onClick={() => navigate('/students')}>
                   Cancel
