@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HomeIcon from '@mui/icons-material/Home';
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -10,23 +10,58 @@ import AddIcon from '@mui/icons-material/Add';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import DeleteIcon from '@mui/icons-material/Delete';
 
+import { apiService } from '../services/api';
+
 function Students() {
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState('students');
-  const [students, setStudents] = useState([
-    { id: 'S001', name: 'John Doe', course: 'Computer Science', fingerprintId: 'FP12345' },
-    { id: 'S002', name: 'Jane Smith', course: 'Mathematics', fingerprintId: 'FP12346' },
-    { id: 'S003', name: 'Mike Johnson', course: 'Physics', fingerprintId: 'FP12347' },
-    { id: 'S004', name: 'Sarah Williams', course: 'Chemistry', fingerprintId: 'FP12348' }
-  ]);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await apiService.listStudents();
+      if (response.status === 'success') {
+        setStudents(response.students || []);
+      } else {
+        setError(response.message || 'Failed to load students');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to load students');
+      console.error('Error fetching students:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleNav = (path, navItem) => {
     setActiveNav(navItem);
     navigate(path);
   };
 
-  const handleRemove = (id) => {
-    setStudents(students.filter(s => s.id !== id));
+  const handleRemove = async (uid) => {
+    if (!confirm(`Are you sure you want to remove student ${uid}?`)) {
+      return;
+    }
+
+    try {
+      const response = await apiService.deleteStudent(uid);
+      if (response.status === 'success') {
+        setStudents(students.filter(s => s.uid !== uid));
+      } else {
+        alert(response.message || 'Failed to delete student');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Failed to delete student');
+      console.error('Error deleting student:', err);
+    }
   };
 
   return (
@@ -101,33 +136,58 @@ function Students() {
           <div className="card-header">
             <h2 className="card-title">All Students ({students.length})</h2>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Student ID</th>
-                <th>Name</th>
-                <th>Course</th>
-                <th>Fingerprint ID</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((student) => (
-                <tr key={student.id}>
-                  <td><strong>{student.id}</strong></td>
-                  <td>{student.name}</td>
-                  <td>{student.course}</td>
-                  <td><code>{student.fingerprintId}</code></td>
-                  <td>
-                    <button className="btn-danger" onClick={() => handleRemove(student.id)}>
-                      <DeleteIcon style={{fontSize: '16px', marginRight: '4px'}} />
-                      Remove
-                    </button>
-                  </td>
+
+          {error && (
+            <div style={{
+              margin: '20px',
+              background: '#fff5f5',
+              border: '1px solid #800020',
+              color: '#800020',
+              padding: '12px 14px',
+              borderRadius: '10px',
+              fontSize: '14px'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <p>Loading students...</p>
+            </div>
+          ) : students.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <p>No students enrolled yet. Click "Add New Student" to get started.</p>
+            </div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Student ID</th>
+                  <th>Name</th>
+                  <th>Fingerprint ID</th>
+                  <th>Enrolled Date</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {students.map((student) => (
+                  <tr key={student.uid}>
+                    <td><strong>{student.uid}</strong></td>
+                    <td>{student.name}</td>
+                    <td><code>{student.fingerprint_id}</code></td>
+                    <td>{student.created_at ? new Date(student.created_at).toLocaleDateString() : 'N/A'}</td>
+                    <td>
+                      <button className="btn-danger" onClick={() => handleRemove(student.uid)}>
+                        <DeleteIcon style={{fontSize: '16px', marginRight: '4px'}} />
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </main>
     </div>

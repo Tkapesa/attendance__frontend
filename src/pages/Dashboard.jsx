@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HomeIcon from '@mui/icons-material/Home';
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -15,9 +15,35 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SchoolIcon from '@mui/icons-material/School';
 
+import { apiService } from '../services/api';
+
 function Dashboard() {
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState('dashboard');
+  const [stats, setStats] = useState({
+    total_students: 0,
+    present_today: 0,
+    attendance_percentage: 0,
+    new_students_this_week: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await apiService.getDashboardStats();
+      if (response.status === 'success') {
+        setStats(response.stats);
+      }
+    } catch (err) {
+      console.error('Error fetching dashboard stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleNav = (path, navItem) => {
     setActiveNav(navItem);
@@ -120,11 +146,11 @@ function Dashboard() {
             </div>
             <div className="project-title">Student Management</div>
             <div className="project-stats">
-              <span>45 Students</span>
-              <span>95%</span>
+              <span>{loading ? '...' : stats.total_students} Students</span>
+              <span>{loading ? '...' : Math.round((stats.total_students / (stats.total_students + 5)) * 100)}%</span>
             </div>
             <div className="progress-bar">
-              <div className="progress-fill" style={{width: '95%'}}></div>
+              <div className="progress-fill" style={{width: loading ? '0%' : `${Math.round((stats.total_students / (stats.total_students + 5)) * 100)}%`}}></div>
             </div>
           </div>
 
@@ -139,11 +165,11 @@ function Dashboard() {
             </div>
             <div className="project-title">Live Attendance</div>
             <div className="project-stats">
-              <span>38 Present Today</span>
-              <span>84%</span>
+              <span>{loading ? '...' : stats.present_today} Present Today</span>
+              <span>{loading ? '...' : stats.attendance_percentage}%</span>
             </div>
             <div className="progress-bar">
-              <div className="progress-fill" style={{width: '84%'}}></div>
+              <div className="progress-fill" style={{width: loading ? '0%' : `${stats.attendance_percentage}%`}}></div>
             </div>
           </div>
 

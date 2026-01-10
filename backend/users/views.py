@@ -64,3 +64,78 @@ def register_user(request):
             "user": user_doc,
         }
     )
+
+
+@csrf_exempt
+def list_students(request):
+    """Get all students from Firestore"""
+    if request.method != "GET":
+        return _json_error("Method not allowed", status=405)
+
+    try:
+        db = get_firestore_db()
+    except FirebaseCredentialsError as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+    # Query all users with role=student
+    students_ref = db.collection("users").where("role", "==", "student")
+    students = []
+    
+    for doc in students_ref.stream():
+        student_data = doc.to_dict()
+        students.append(student_data)
+
+    return JsonResponse({
+        "status": "success",
+        "students": students,
+        "count": len(students)
+    })
+
+
+@csrf_exempt
+def get_student(request, uid):
+    """Get a single student by UID"""
+    if request.method != "GET":
+        return _json_error("Method not allowed", status=405)
+
+    try:
+        db = get_firestore_db()
+    except FirebaseCredentialsError as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+    student_doc = db.collection("users").document(uid).get()
+    
+    if not student_doc.exists:
+        return _json_error("Student not found", status=404)
+
+    student_data = student_doc.to_dict()
+    
+    return JsonResponse({
+        "status": "success",
+        "student": student_data
+    })
+
+
+@csrf_exempt
+def delete_student(request, uid):
+    """Delete a student from Firestore"""
+    if request.method != "DELETE" and request.method != "POST":
+        return _json_error("Method not allowed", status=405)
+
+    try:
+        db = get_firestore_db()
+    except FirebaseCredentialsError as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+    student_doc = db.collection("users").document(uid).get()
+    
+    if not student_doc.exists:
+        return _json_error("Student not found", status=404)
+
+    # Delete the student document
+    db.collection("users").document(uid).delete()
+    
+    return JsonResponse({
+        "status": "success",
+        "message": f"Student {uid} deleted successfully"
+    })
